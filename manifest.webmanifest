@@ -1,0 +1,17 @@
+{
+  "name": "SDVX Pattern Trainer",
+  "short_name": "SDVX 練習",
+  "description": "手機用 SDVX 控制器 pattern 練習器",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "landscape",
+  "background_color": "#070920",
+  "theme_color": "#070920",
+  "icons": [
+    {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}
