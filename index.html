@@ -31,20 +31,20 @@ button,select,input{font:inherit;color:inherit}
   padding:6px max(8px,var(--sr),calc((100% - 960px)/2)) max(8px,var(--sb)) max(8px,var(--sl),calc((100% - 960px)/2))}
 #app.rot{padding:6px max(8px,var(--st),var(--sb),calc((100% - 960px)/2)) 8px}
 .bar{flex:none;height:46px;display:flex;align-items:center;gap:8px}
-.hb{height:40px;min-width:44px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:#151946;font-weight:700;flex:none}
+.hb{height:36px;min-width:44px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:#151946;font-weight:700;flex:none}
 .hb:focus-visible{outline:2px solid var(--ok);outline-offset:2px}
 #play{background:var(--ok);color:#03201a;border-color:transparent;min-width:72px}
 #mid{flex:1;display:flex;flex-direction:column;overflow:hidden;line-height:1.3}
-#title{font-size:13px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#live{font-size:14px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+#title{position:absolute;right:6px;top:3px;font-size:11px;color:rgba(143,150,189,.75);pointer-events:none;white-space:nowrap}
+#live{flex:none;font-size:13px;color:var(--mut);white-space:nowrap;font-variant-numeric:tabular-nums}
 #live b{color:var(--ink);font-weight:700}
 #reroll[hidden]{display:none}
-#chartBox{flex:0 0 30%;position:relative;border-radius:10px;overflow:hidden;background:#05061a}
-#meterBox{flex:none;height:30px;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mut);font-variant-numeric:tabular-nums;white-space:nowrap}
+#chartBox{flex:0 0 22%;min-height:80px;position:relative;border-radius:10px;overflow:hidden;background:#05061a}
+#meterBox{flex:none;height:38px;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mut);font-variant-numeric:tabular-nums;white-space:nowrap}
 #meterBox b{color:var(--ink)}
 #meterWrap{flex:1;position:relative;height:100%}
 #chartBox canvas,#meterWrap canvas{position:absolute;inset:0;width:100%;height:100%}
-#sg,#mn{flex:none;width:7.2em}#mn{text-align:right}
+#sg,#mn{flex:none;width:6.2em}#mn{text-align:right}
 #pad{flex:1;min-height:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:3fr 2fr;gap:8px;touch-action:none}
 .k{position:relative;border:0;border-radius:14px;touch-action:none;transition:transform .04s;display:grid;place-items:center;overflow:hidden}
 .bt{background:linear-gradient(#fff,#cdd2ec);box-shadow:0 5px 0 #6c7399;color:#1a1f4a}
@@ -82,14 +82,12 @@ input[type=range]{width:100%;height:30px;accent-color:var(--ok)}
 <body>
 <div id="probe"></div>
 <div id="app">
-  <div class="bar">
-    <button class="hb" id="gear">設定</button>
-    <div id="mid"><div id="title"></div><div id="live">按「開始」，先有 1 小節預備拍</div></div>
-    <button class="hb" id="reroll" hidden>換一組</button>
-    <button class="hb" id="play">開始</button>
+  <div id="chartBox"><canvas id="chart"></canvas><div id="title" hidden></div></div>
+  <div id="meterBox">
+    <button class="hb" id="gear">設定</button><button class="hb" id="reroll" hidden>換一組</button>
+    <span id="sg">σ <b>–</b></span><div id="meterWrap"><canvas id="meter"></canvas></div><span id="mn"><b>–</b></span>
+    <span id="live"></span><button class="hb" id="play">開始</button>
   </div>
-  <div id="chartBox"><canvas id="chart"></canvas></div>
-  <div id="meterBox"><span id="sg">σ <b>–</b></span><div id="meterWrap"><canvas id="meter"></canvas></div><span id="mn"><b>–</b></span></div>
   <div id="pad">
     <button class="k bt" data-l="0" aria-label="BT-A"><span class="fb"></span></button>
     <button class="k bt" data-l="1" aria-label="BT-B"><span class="fb"></span></button>
@@ -129,7 +127,7 @@ input[type=range]{width:100%;height:30px;accent-color:var(--ok)}
 
 <script>
 {
-const VERSION='v2.1';
+const VERSION='v2.2';
 const $=s=>document.querySelector(s);
 const PATS=[
   {id:'up',n:'樓梯 ↗',s:'A B C D'},{id:'down',n:'樓梯 ↘',s:'D C B A'},{id:'zig',n:'來回樓梯',s:'A B C D C B'},
@@ -231,10 +229,7 @@ const live=now=>{
   const r=hist.slice(-32).map(h=>h.d),sg=sd(r),m=mean(r);
   $('#sg').innerHTML=`σ <b style="color:${sg===null?'inherit':col(sg)}">${fmt(sg,' ms')}</b>`;
   $('#mn').innerHTML=m===null?'<b>–</b>':`${m>=0?'晚':'早'} <b>${Math.abs(Math.round(m))} ms</b>`;
-  if(!run)return;
-  if(paused){el.textContent='暫停中 — 點「設定」看詳細結果';return}
-  if(now<t0){el.textContent='預備… '+Math.ceil((t0-now)/(stepMs*beatSteps));return}
-  const a=acc();el.innerHTML=`正確 <b>${fmt(a,'%')}</b> · 連續 <b>${st.streak}</b> · 按錯 <b>${st.wrong}</b> · 漏按 <b>${st.miss}</b>`;
+  const a=acc();el.innerHTML=`正確 <b>${fmt(a,'%')}</b>`;
 };
 const HEX={ok:'#4dffc3',mid:'#ffe14d',bad:'#ff4d6d'};
 const colHex=d=>{const a=Math.abs(d);return a<=20?HEX.ok:a<=40?HEX.mid:HEX.bad};
@@ -258,7 +253,9 @@ const drawChart=now=>{
   if(run&&posAbs>-.5){const p=((posAbs+.5)%n+n)%n-.5,y=H-pd-(p+.5)*rowH;
     cg.fillStyle='rgba(46,197,255,.95)';cg.fillRect(0,y-1*dpr,W,2*dpr);
     const gr=cg.createLinearGradient(0,y,0,y+rowH*1.2);gr.addColorStop(0,'rgba(46,197,255,.18)');gr.addColorStop(1,'rgba(46,197,255,0)');cg.fillStyle=gr;cg.fillRect(0,y,W,rowH*1.2)}
-  if(!run){cg.font=`600 ${13*dpr}px -apple-system,"PingFang TC",sans-serif`;cg.fillStyle='rgba(143,150,189,.9)';cg.textAlign='right';cg.fillText('由下往上讀',W-6*dpr,14*dpr)}
+  const msg=!run?'按「開始」· 由下往上讀':paused?'暫停中 · 「設定」看詳細結果':tNow<t0?'預備 '+Math.ceil((t0-tNow)/(stepMs*beatSteps)):'';
+  if(msg){cg.font=`700 ${15*dpr}px "Chakra Petch",-apple-system,"PingFang TC",sans-serif`;cg.textAlign='center';cg.textBaseline='middle';
+    const tw=cg.measureText(msg).width+20*dpr;cg.fillStyle='rgba(5,6,26,.8)';cg.fillRect(W/2-tw/2,H/2-13*dpr,tw,26*dpr);cg.fillStyle='#eef1ff';cg.fillText(msg,W/2,H/2)}
 };
 const drawMeter=now=>{
   const dpr=sizeCv(meter),W=meter.width,H=meter.height;mg.clearRect(0,0,W,H);if(!W)return;
@@ -318,7 +315,7 @@ for(const f of ['pat','custom','bpm','div','click','offset'])$('#'+f).addEventLi
   S[f]=['pat','custom','click'].includes(f)?v:+v;save();labels();if(['pat','custom','bpm','div'].includes(f))dirty=true});
 $('#flip').addEventListener('change',e=>{S.flip=e.target.checked;save();fit()});
 const openSheet=()=>{pause();show();results();dirty=false;$('#sheet').hidden=false};
-const closeSheet=()=>{$('#sheet').hidden=true;if(dirty){run=false;if(S.pat!=='rnd'&&S.pat!=='rnd2')rndSeq=null;setup();ui();$('#live').textContent='設定已變更，按「開始」重新開始'}};
+const closeSheet=()=>{$('#sheet').hidden=true;if(dirty){run=false;if(S.pat!=='rnd'&&S.pat!=='rnd2')rndSeq=null;setup();ui();}};
 $('#gear').addEventListener('click',openSheet);$('#close').addEventListener('click',closeSheet);
 $('#sheet').addEventListener('click',e=>{if(e.target.id==='sheet')closeSheet()});
 $('#applyOff').addEventListener('click',()=>{const m=mean(hist.map(h=>h.d));if(m===null)return;
