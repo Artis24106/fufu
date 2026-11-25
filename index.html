@@ -34,18 +34,22 @@ button,select,input{font:inherit;color:inherit}
 .hb{height:40px;min-width:44px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:#151946;font-weight:700;flex:none}
 .hb:focus-visible{outline:2px solid var(--ok);outline-offset:2px}
 #play{background:var(--ok);color:#03201a;border-color:transparent;min-width:72px}
-#mid{flex:1;display:flex;flex-direction:column;gap:3px;overflow:hidden}
-#seq{display:flex;gap:3px;height:16px;overflow:hidden}
-#seq i{flex:0 0 auto;min-width:20px;padding:0 3px;border-radius:4px;background:#161a45;color:var(--mut);font:600 11px/16px "Chakra Petch",sans-serif;text-align:center;font-style:normal}
-#seq i.on{background:var(--ink);color:#070920}
-#live{font-size:13px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+#mid{flex:1;display:flex;flex-direction:column;overflow:hidden;line-height:1.3}
+#title{font-size:13px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#live{font-size:14px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
 #live b{color:var(--ink);font-weight:700}
+#reroll[hidden]{display:none}
+#chartBox{flex:0 0 30%;position:relative;border-radius:10px;overflow:hidden;background:#05061a}
+#meterBox{flex:none;height:30px;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mut);font-variant-numeric:tabular-nums;white-space:nowrap}
+#meterBox b{color:var(--ink)}
+#meterWrap{flex:1;position:relative;height:100%}
+#chartBox canvas,#meterWrap canvas{position:absolute;inset:0;width:100%;height:100%}
+#sg,#mn{flex:none;width:7.2em}#mn{text-align:right}
 #pad{flex:1;min-height:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:3fr 2fr;gap:8px;touch-action:none}
 .k{position:relative;border:0;border-radius:14px;touch-action:none;transition:transform .04s;display:grid;place-items:center;overflow:hidden}
 .bt{background:linear-gradient(#fff,#cdd2ec);box-shadow:0 5px 0 #6c7399;color:#1a1f4a}
 .fx{grid-column:span 2;background:linear-gradient(#ffad5c,#e66d00);box-shadow:0 5px 0 #8a3f00;color:#3a1600}
 .k.on{transform:translateY(4px);box-shadow:0 1px 0 #3a3f63}
-.k.nx::after{content:"";position:absolute;inset:0;border-radius:14px;box-shadow:inset 0 0 0 4px rgba(46,197,255,.95),inset 0 0 26px rgba(46,197,255,.55)}
 .k .fb{font:700 clamp(18px,5vmin,30px)/1 "Chakra Petch",sans-serif;font-variant-numeric:tabular-nums;opacity:0}
 .k .fb.pop{animation:pop .5s ease-out}
 .k.miss{animation:miss .3s}
@@ -80,9 +84,12 @@ input[type=range]{width:100%;height:30px;accent-color:var(--ok)}
 <div id="app">
   <div class="bar">
     <button class="hb" id="gear">設定</button>
-    <div id="mid"><div id="seq"></div><div id="live">按「開始」，先有 1 小節預備拍</div></div>
+    <div id="mid"><div id="title"></div><div id="live">按「開始」，先有 1 小節預備拍</div></div>
+    <button class="hb" id="reroll" hidden>換一組</button>
     <button class="hb" id="play">開始</button>
   </div>
+  <div id="chartBox"><canvas id="chart"></canvas></div>
+  <div id="meterBox"><span id="sg">σ <b>–</b></span><div id="meterWrap"><canvas id="meter"></canvas></div><span id="mn"><b>–</b></span></div>
   <div id="pad">
     <button class="k bt" data-l="0" aria-label="BT-A"><span class="fb"></span></button>
     <button class="k bt" data-l="1" aria-label="BT-B"><span class="fb"></span></button>
@@ -113,7 +120,6 @@ input[type=range]{width:100%;height:30px;accent-color:var(--ok)}
         <label class="f">節拍器<select id="click">
           <option value="step">每個音符都響</option><option value="beat">只響拍子（4 分）</option><option value="off">關閉</option></select></label>
         <label class="f">offset <b id="offV"></b><input type="range" id="offset" min="-150" max="150" step="1"></label>
-        <label class="chk"><input type="checkbox" id="hint">亮出下一顆要按的鍵</label>
         <label class="chk"><input type="checkbox" id="flip">直拿時反轉橫向方向</label>
       </div>
       <p class="hint">iPhone 靜音模式下沒有節拍聲。offset 只影響「平均偏早/偏晚」，不影響 σ。版本 <span id="ver"></span></p>
@@ -123,17 +129,19 @@ input[type=range]{width:100%;height:30px;accent-color:var(--ok)}
 
 <script>
 {
-const VERSION='v2.0';
+const VERSION='v2.1';
 const $=s=>document.querySelector(s);
 const PATS=[
   {id:'up',n:'樓梯 ↗',s:'A B C D'},{id:'down',n:'樓梯 ↘',s:'D C B A'},{id:'zig',n:'來回樓梯',s:'A B C D C B'},
   {id:'in',n:'交互・內側',s:'B C'},{id:'out',n:'交互・外側',s:'A D'},{id:'jump',n:'跳躍',s:'A C B D'},
-  {id:'dbl',n:'雙押交互',s:'AB CD'},{id:'split',n:'分離交互',s:'AC BD'},{id:'dstair',n:'雙押樓梯',s:'AB BC CD BC'},
-  {id:'jack',n:'縱連',s:'A A B B C C D D'},{id:'fx',n:'FX 交互',s:'L R'},{id:'btfx',n:'BT + FX 同押',s:'AL B C DR'},
-  {id:'fxmix',n:'FX 夾 BT',s:'L B R C'},{id:'rnd',n:'隨機單押',gen:'single'},{id:'rnd2',n:'隨機（含雙押/FX）',gen:'mix'},{id:'custom',n:'自訂'}
+  {id:'dbl',n:'雙押交互',s:'AB CD'},{id:'split',n:'分離交互',s:'AC BD'},{id:'jack',n:'縱連',s:'A A B B C C D D'},
+  {id:'fx',n:'FX 交互',s:'L R'},{id:'fxin',n:'FX 夾 BT',s:'L B R C'},{id:'fxstair',n:'樓梯穿插 FX',s:'A B L C D R'},
+  {id:'btfx',n:'BT + FX 同押',s:'AL B C DR'},{id:'fxcross',n:'FX 交叉同押',s:'AR B C DL'},{id:'fxdbl',n:'FX + 雙押',s:'L CD R AB'},
+  {id:'fxtrill',n:'FX 與 BT 交互',s:'L A L B R C R D'},
+  {id:'rnd',n:'隨機 8 note（單押 + FX）',gen:'single'},{id:'rnd2',n:'隨機 8 note（含同押）',gen:'mix'},{id:'custom',n:'自訂'}
 ];
 const NAMES='ABCDLR';
-const DEF={pat:'up',custom:'A B C D AB CD L R',bpm:160,div:16,click:'step',offset:0,hint:true,flip:false};
+const DEF={pat:'up',custom:'A B C D AB CD L R',bpm:160,div:16,click:'step',offset:0,flip:false};
 const S=Object.assign({},DEF);
 try{Object.assign(S,JSON.parse(localStorage.getItem('sdvxp2')||'{}'))}catch(e){}
 const save=()=>{try{localStorage.setItem('sdvxp2',JSON.stringify(S))}catch(e){}};
@@ -142,9 +150,12 @@ const parse=str=>{const out=String(str).toUpperCase().split(/[\s,]+/).filter(Boo
   return out.some(x=>x.length)?out:[[0]]};
 let lastR=-1;
 const genStep=mode=>{const one=()=>{let l;do{l=Math.floor(Math.random()*4)}while(l===lastR);lastR=l;return l};
-  if(mode==='single')return[one()];const r=Math.random();
-  if(r<.22){const a=one();let b;do{b=Math.floor(Math.random()*4)}while(b===a);return[a,b]}
-  if(r<.34)return[Math.random()<.5?4:5];return[one()]};
+  const fx=()=>Math.random()<.5?4:5,r=Math.random();
+  if(mode==='single')return r<.25?[fx()]:[one()];
+  if(r<.2){const a=one();let b;do{b=Math.floor(Math.random()*4)}while(b===a);return[a,b]}
+  if(r<.35)return[fx()];if(r<.45)return[one(),fx()];return[one()]};
+const genSeq=mode=>{lastR=-1;let q;do{q=Array.from({length:8},()=>genStep(mode))}while(!q.some(x=>x.includes(4)||x.includes(5)));return q};
+let rndSeq=null;
 
 // ---- audio
 let ac=null;
@@ -155,17 +166,20 @@ const beep=(t,f,v)=>{if(!ac)return;try{const at=ac.currentTime+Math.max(0,(t-per
 
 // ---- engine
 let run=false,paused=false,pausedAt=0,t0=0,stepMs=100,seq=null,pat=PATS[0],cyc=16,kGen=0,kDone=0,beatSteps=4;
-let steps=new Map(),st,hist=[];
+let steps=new Map(),res=new Map(),st,hist=[];
 const resetStats=()=>{st={ok:0,wrong:0,miss:0,streak:0,max:0};hist=[]};resetStats();
-const setup=()=>{pat=PATS.find(p=>p.id===S.pat)||PATS[0];seq=pat.gen?null:parse(pat.id==='custom'?S.custom:pat.s);
-  cyc=seq?seq.length:16;stepMs=60000/S.bpm*4/S.div;beatSteps=Math.max(1,S.div/4);renderSeq()};
-const start=()=>{ensureAudio();setup();steps=new Map();resetStats();lastR=-1;
-  kGen=-S.div;kDone=0;t0=performance.now()+300+S.div*stepMs;run=true;paused=false;lastNx=null;ui()};
+const setup=()=>{pat=PATS.find(p=>p.id===S.pat)||PATS[0];
+  if(pat.gen){if(!rndSeq||rndSeq.mode!==pat.gen){rndSeq=genSeq(pat.gen);rndSeq.mode=pat.gen}seq=rndSeq}else seq=parse(pat.id==='custom'?S.custom:pat.s);
+  cyc=seq.length;stepMs=60000/S.bpm*4/S.div;beatSteps=Math.max(1,S.div/4);
+  $('#title').textContent=`${pat.n} · ${S.bpm} BPM · ${S.div} 分`;$('#reroll').hidden=!pat.gen};
+const start=()=>{ensureAudio();setup();steps=new Map();res=new Map();resetStats();
+  kGen=-S.div;kDone=0;t0=performance.now()+300+S.div*stepMs;run=true;paused=false;ui()};
 const pause=()=>{if(!run||paused)return;paused=true;pausedAt=performance.now();try{ac&&ac.suspend()}catch(e){}ui()};
 const resume=()=>{if(!paused)return;ensureAudio();t0+=performance.now()-pausedAt;paused=false;ui()};
 const toggle=()=>{if(!run)start();else if(paused)resume();else pause()};
 const stepT=k=>t0+k*stepMs;
-const getStep=k=>{let s=steps.get(k);if(!s){s={lanes:seq?seq[((k%cyc)+cyc)%cyc]:genStep(pat.gen),hit:new Set()};steps.set(k,s)}return s};
+const getStep=k=>{let s=steps.get(k);if(!s){s={lanes:seq[((k%cyc)+cyc)%cyc],hit:new Set()};steps.set(k,s)}return s};
+const mark=(k,l,v)=>{let r=res.get(k);if(!r){r={};res.set(k,r)}r[l]=v;if(res.size>64)for(const key of res.keys()){if(key<k-cyc*2)res.delete(key);else break}};
 
 const schedule=now=>{
   while(stepT(kGen)<now+150){
@@ -180,7 +194,7 @@ const finalize=now=>{
   const win=Math.min(stepMs,160);
   while(kDone<kGen&&now-S.offset>stepT(kDone)+win){
     const s=getStep(kDone);
-    for(const l of s.lanes)if(!s.hit.has(l)){st.miss++;st.streak=0;fbMiss(l)}
+    for(const l of s.lanes)if(!s.hit.has(l)){st.miss++;st.streak=0;fbMiss(l);mark(kDone,l,'M')}
     steps.delete(kDone);kDone++}
 };
 const press=l=>{
@@ -193,7 +207,7 @@ const press=l=>{
   for(const c of cand){const s=getStep(c),d=t-stepT(c);
     if(s.lanes.includes(l)&&!s.hit.has(l)&&Math.abs(d)<=win){
       s.hit.add(l);st.ok++;st.streak++;st.max=Math.max(st.max,st.streak);
-      hist.push({d,l});if(hist.length>2000)hist.shift();fbHit(l,d);return}}
+      hist.push({d,l,t:now});if(hist.length>2000)hist.shift();mark(c,l,d);fbHit(l,d);return}}
   st.wrong++;st.streak=0;fbWrong(l)
 };
 
@@ -214,22 +228,52 @@ let lastLive=0;
 const live=now=>{
   if(now-lastLive<120)return;lastLive=now;
   const el=$('#live');
-  if(!run){return}
+  const r=hist.slice(-32).map(h=>h.d),sg=sd(r),m=mean(r);
+  $('#sg').innerHTML=`σ <b style="color:${sg===null?'inherit':col(sg)}">${fmt(sg,' ms')}</b>`;
+  $('#mn').innerHTML=m===null?'<b>–</b>':`${m>=0?'晚':'早'} <b>${Math.abs(Math.round(m))} ms</b>`;
+  if(!run)return;
   if(paused){el.textContent='暫停中 — 點「設定」看詳細結果';return}
-  if(now<t0){const beats=Math.ceil((t0-now)/(stepMs*beatSteps));el.textContent='預備… '+beats;return}
-  const r=hist.slice(-48).map(h=>h.d),s=sd(r),m=mean(r),a=acc();
-  el.innerHTML=`正確 <b>${fmt(a,'%')}</b> · σ <b style="color:${s===null?'inherit':col(s)}">${fmt(s,' ms')}</b> · ${m===null?'':m>=0?'偏晚 ':'偏早 '}<b>${m===null?'–':Math.abs(Math.round(m))+' ms'}</b> · 連續 <b>${st.streak}</b>`;
+  if(now<t0){el.textContent='預備… '+Math.ceil((t0-now)/(stepMs*beatSteps));return}
+  const a=acc();el.innerHTML=`正確 <b>${fmt(a,'%')}</b> · 連續 <b>${st.streak}</b> · 按錯 <b>${st.wrong}</b> · 漏按 <b>${st.miss}</b>`;
 };
-const renderSeq=()=>{$('#seq').innerHTML=seq?seq.slice(0,32).map(s=>`<i>${s.length?s.map(i=>NAMES[i]).join(''):'-'}</i>`).join(''):`<i>隨機</i>`};
-let lastNx=null;
-const hintUpdate=now=>{
-  let kN=null;if(run&&!paused&&now>t0-stepMs*0.5)kN=Math.max(kDone,Math.ceil((now-S.offset-t0)/stepMs-0.35));
-  if(kN===lastNx)return;lastNx=kN;
-  const lanes=kN===null||kN>=kGen?[]:getStep(kN).lanes;
-  keys.forEach((k,i)=>k.classList.toggle('nx',S.hint&&lanes.includes(i)));
-  const cells=$('#seq').children;if(seq)for(let i=0;i<cells.length;i++)cells[i].classList.toggle('on',kN!==null&&i===((kN%cyc)+cyc)%cyc);
+const HEX={ok:'#4dffc3',mid:'#ffe14d',bad:'#ff4d6d'};
+const colHex=d=>{const a=Math.abs(d);return a<=20?HEX.ok:a<=40?HEX.mid:HEX.bad};
+const sizeCv=c=>{const dpr=Math.min(devicePixelRatio||1,3),w=Math.round(c.clientWidth*dpr),h=Math.round(c.clientHeight*dpr);if(c.width!==w)c.width=w;if(c.height!==h)c.height=h;return dpr};
+const chart=$('#chart'),cg=chart.getContext('2d'),meter=$('#meter'),mg=meter.getContext('2d');
+const rr=(g,x,y,w,h,r)=>{g.beginPath();g.roundRect?g.roundRect(x,y,w,h,r):g.rect(x,y,w,h);};
+const drawChart=now=>{
+  const dpr=sizeCv(chart),W=chart.width,H=chart.height;cg.clearRect(0,0,W,H);if(!W||!seq)return;
+  const gap=8*dpr,lw=(W-3*gap)/4,X=i=>i*(lw+gap),n=cyc,pd=6*dpr,rowH=(H-2*pd)/n,yRow=i=>H-pd-(i+.5)*rowH;
+  for(let i=0;i<4;i++){cg.fillStyle='rgba(255,255,255,.05)';cg.fillRect(X(i),0,lw,H)}
+  for(let i=0;i<=n;i++){if(i%beatSteps&&i!==n)continue;const y=H-pd-i*rowH;cg.fillStyle=i===0||i===n?'rgba(255,255,255,.45)':'rgba(255,255,255,.16)';cg.fillRect(0,y-.5*dpr,W,1*dpr)}
+  const tNow=paused?pausedAt:now,posAbs=run?(tNow-S.offset-t0)/stepMs:-99,c=Math.floor((posAbs+.5)/n);
+  const nh=Math.max(5*dpr,Math.min(rowH*.62,16*dpr));
+  for(let pass=0;pass<2;pass++)for(let i=0;i<n;i++){
+    const r=res.get(c*n+i)||{},y=yRow(i);
+    for(const l of seq[i]){const isFx=l>3;if((pass===0)!==isFx)continue;
+      const x=isFx?X((l-4)*2):X(l),w=isFx?lw*2+gap:lw,h=isFx?nh*1.15:nh,v=r[l];
+      rr(cg,x+2*dpr,y-h/2,w-4*dpr,h,3*dpr);
+      cg.fillStyle=v===undefined?(isFx?'#ff8a1f':'#eef1ff'):v==='M'?'#5a1426':colHex(v);cg.fill();
+      if(v==='M'){cg.strokeStyle=HEX.bad;cg.lineWidth=2*dpr;cg.stroke()}}}
+  if(run&&posAbs>-.5){const p=((posAbs+.5)%n+n)%n-.5,y=H-pd-(p+.5)*rowH;
+    cg.fillStyle='rgba(46,197,255,.95)';cg.fillRect(0,y-1*dpr,W,2*dpr);
+    const gr=cg.createLinearGradient(0,y,0,y+rowH*1.2);gr.addColorStop(0,'rgba(46,197,255,.18)');gr.addColorStop(1,'rgba(46,197,255,0)');cg.fillStyle=gr;cg.fillRect(0,y,W,rowH*1.2)}
+  if(!run){cg.font=`600 ${13*dpr}px -apple-system,"PingFang TC",sans-serif`;cg.fillStyle='rgba(143,150,189,.9)';cg.textAlign='right';cg.fillText('由下往上讀',W-6*dpr,14*dpr)}
 };
-const loop=()=>{const now=performance.now();if(run&&!paused){schedule(now);finalize(now)}hintUpdate(now);live(now);requestAnimationFrame(loop)};
+const drawMeter=now=>{
+  const dpr=sizeCv(meter),W=meter.width,H=meter.height;mg.clearRect(0,0,W,H);if(!W)return;
+  const Rm=Math.max(50,Math.min(100,stepMs*.6)),cx=W/2,X=d=>cx+Math.max(-1,Math.min(1,d/Rm))*(W/2-3*dpr);
+  rr(mg,0,H*.3,W,H*.4,H*.2);mg.fillStyle='#14183f';mg.fill();
+  mg.fillStyle='rgba(255,225,77,.18)';mg.fillRect(X(-40),H*.3,X(40)-X(-40),H*.4);
+  mg.fillStyle='rgba(77,255,195,.28)';mg.fillRect(X(-20),H*.3,X(20)-X(-20),H*.4);
+  mg.fillStyle='rgba(255,255,255,.8)';mg.fillRect(cx-1*dpr,H*.15,2*dpr,H*.7);
+  const recent=hist.slice(-24);
+  for(const h of recent){const age=(now-h.t)/4000;if(age>1)continue;mg.globalAlpha=1-age*.8;mg.fillStyle=colHex(h.d);mg.fillRect(X(h.d)-1.5*dpr,H*.2,3*dpr,H*.6)}
+  mg.globalAlpha=1;const m=mean(hist.slice(-32).map(h=>h.d));
+  if(m!==null){const x=X(m);mg.fillStyle='#fff';mg.beginPath();mg.moveTo(x,H*.22);mg.lineTo(x-5*dpr,0);mg.lineTo(x+5*dpr,0);mg.fill()}
+  mg.font=`600 ${10*dpr}px "Chakra Petch",sans-serif`;mg.fillStyle='rgba(143,150,189,.9)';mg.textBaseline='bottom';
+  mg.textAlign='left';mg.fillText('早',3*dpr,H);mg.textAlign='right';mg.fillText('晚',W-3*dpr,H)};
+const loop=()=>{const now=performance.now();if(run&&!paused){schedule(now);finalize(now)}drawChart(now);drawMeter(now);live(now);requestAnimationFrame(loop)};
 
 // ---- results sheet
 const scatter=()=>{const c=$('#sc'),dpr=Math.min(devicePixelRatio||1,3),W=c.width=c.clientWidth*dpr,H=c.height=c.clientHeight*dpr,g=c.getContext('2d');
@@ -263,22 +307,22 @@ document.addEventListener('keyup',e=>{const l=KM[e.key.toLowerCase()];if(l!==und
 document.addEventListener('visibilitychange',()=>{if(document.hidden)pause()});
 const ui=()=>{$('#play').textContent=!run?'開始':paused?'繼續':'暫停';lastLive=0;if(paused)live(performance.now())};
 $('#play').addEventListener('click',toggle);
+$('#reroll').addEventListener('click',()=>{rndSeq=null;const was=run;run=false;setup();if(was)start();else ui()});
 
 // ---- settings
 $('#pat').innerHTML=PATS.map(p=>`<option value="${p.id}">${p.n}${p.s?' — '+p.s:''}</option>`).join('');
-const show=()=>{for(const f of ['pat','custom','bpm','div','click','offset'])$('#'+f).value=S[f];$('#hint').checked=S.hint;$('#flip').checked=S.flip;labels()};
+const show=()=>{for(const f of ['pat','custom','bpm','div','click','offset'])$('#'+f).value=S[f];$('#flip').checked=S.flip;labels()};
 const labels=()=>{$('#bpmV').textContent=S.bpm;$('#offV').textContent=(S.offset>0?'+':'')+S.offset+' ms';$('#customWrap').style.display=S.pat==='custom'?'':'none'};
 let dirty=false;
 for(const f of ['pat','custom','bpm','div','click','offset'])$('#'+f).addEventListener('input',e=>{const v=e.target.value;
   S[f]=['pat','custom','click'].includes(f)?v:+v;save();labels();if(['pat','custom','bpm','div'].includes(f))dirty=true});
-$('#hint').addEventListener('change',e=>{S.hint=e.target.checked;save();lastNx=undefined});
 $('#flip').addEventListener('change',e=>{S.flip=e.target.checked;save();fit()});
 const openSheet=()=>{pause();show();results();dirty=false;$('#sheet').hidden=false};
-const closeSheet=()=>{$('#sheet').hidden=true;if(dirty){run=false;setup();ui();$('#live').textContent='設定已變更，按「開始」重新開始'}};
+const closeSheet=()=>{$('#sheet').hidden=true;if(dirty){run=false;if(S.pat!=='rnd'&&S.pat!=='rnd2')rndSeq=null;setup();ui();$('#live').textContent='設定已變更，按「開始」重新開始'}};
 $('#gear').addEventListener('click',openSheet);$('#close').addEventListener('click',closeSheet);
 $('#sheet').addEventListener('click',e=>{if(e.target.id==='sheet')closeSheet()});
 $('#applyOff').addEventListener('click',()=>{const m=mean(hist.map(h=>h.d));if(m===null)return;
-  S.offset=Math.max(-150,Math.min(150,S.offset+Math.round(m)));save();hist=hist.map(h=>({d:h.d-m,l:h.l}));show();results()});
+  S.offset=Math.max(-150,Math.min(150,S.offset+Math.round(m)));save();hist=hist.map(h=>({d:h.d-m,l:h.l,t:h.t}));show();results()});
 $('#resetStats').addEventListener('click',()=>{resetStats();results()});
 
 // ---- always landscape: rotate the app when the screen is portrait
