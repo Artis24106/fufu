@@ -48,7 +48,7 @@ button,select,input{font:inherit;color:inherit}
 #meterBox{flex:none;height:26px;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mut);font-variant-numeric:tabular-nums;white-space:nowrap}
 #meterBox b{color:var(--ink)}
 #meterWrap{flex:1;position:relative;height:100%}
-#sg,#mn{flex:none;width:6.4em}#mn{text-align:right}
+#sg,#mn{flex:none;width:7.4em}#mn{text-align:right}
 #pad{flex:1;min-height:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:3fr 2fr;gap:8px;touch-action:none}
 .k{position:relative;border:0;border-radius:14px;touch-action:none;transition:transform .04s;display:grid;place-items:center;overflow:hidden}
 .bt{background:linear-gradient(#fff,#cdd2ec);box-shadow:0 5px 0 #6c7399;color:#1a1f4a}
@@ -64,7 +64,7 @@ button,select,input{font:inherit;color:inherit}
 .card{width:min(820px,100%);max-height:96%;overflow:auto;background:var(--sheet);border-radius:18px 18px 0 0;padding:16px 18px 20px;border-top:1px solid var(--line)}
 .card h2{margin:0 0 10px;font-size:19px;display:flex;justify-content:space-between;align-items:center}
 .card h3{margin:18px 0 8px;font-size:15px;color:var(--mut);font-weight:600}
-.big{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.big{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .big div,.lanes div{background:#0b0e2c;border-radius:10px;padding:8px;text-align:center;font-size:12px;color:var(--mut)}
 .big b{display:block;font-size:22px;color:var(--ink);font-variant-numeric:tabular-nums}
 .lanes{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin-top:8px}
@@ -93,7 +93,7 @@ select,input[type=text]{height:44px;border-radius:10px;border:1px solid var(--li
     <div class="side r">
       <div id="live">按 pattern 第一顆開始</div>
       <div><div class="step"><button class="hb" data-adj="rate:-5">−</button><span class="val" id="rateV"></span><button class="hb" data-adj="rate:5">+</button></div><div class="lab">倍速</div></div>
-      <div id="eff" class="lab"></div>
+      <div id="eff" class="lab" style="font-size:12px;white-space:nowrap"></div>
     </div>
   </div>
   <div id="meterBox"><span id="sg">σ <b>–</b></span><div id="meterWrap"><canvas id="meter"></canvas></div><span id="mn"><b>–</b></span></div>
@@ -112,7 +112,7 @@ select,input[type=text]{height:44px;border-radius:10px;border:1px solid var(--li
       <div class="big" id="big"></div>
       <div class="lanes" id="lanes"></div>
       <div class="fig"><canvas id="sc"></canvas></div>
-      <p class="hint">最近 120 下的偏差：往上 = 偏晚，往下 = 偏早，綠帶 = ±20 ms。σ 越小越穩。</p>
+      <p class="hint">最近 120 下跟格線的偏差：往上 = 偏晚，往下 = 偏早，綠帶 = ±20 ms。一路往上爬 = 你比設定 BPM 慢，一路往下 = 比較快；「自身 σ」排除了這種速度差，只看手穩不穩。</p>
       <div class="row" style="margin-top:8px"><span id="avg" class="hint" style="margin:0"></span><button class="hb" id="calib">用平均偏差校正音訊 offset</button><button class="hb" id="resetStats">清除統計</button></div>
       <p class="hint" style="margin-top:4px">校正方式：開節拍器、跟著聲音打一段（例如 4 分單押），如果平均一直偏晚，按上面的校正鈕，節拍聲就會提早播放來抵銷耳機延遲。</p>
       <h3>練習設定</h3>
@@ -128,14 +128,14 @@ select,input[type=text]{height:44px;border-radius:10px;border:1px solid var(--li
         <label class="f">音訊 offset（藍牙耳機延遲）<b id="aoffV"></b><input type="range" id="aoff" min="0" max="400" step="5" style="width:100%;height:30px;accent-color:var(--ok)"></label>
         <label class="chk"><input type="checkbox" id="flip">直拿時反轉橫向方向</label>
       </div>
-      <p class="hint">按 pattern 的第一顆開始，那一下就是拍子的起點，之後照 BPM 固定判定。停手約 1 秒算一段結束。藍牙耳機有延遲，請調「音訊 offset」。iPhone 靜音模式下沒有節拍聲。版本 <span id="ver"></span></p>
+      <p class="hint">按 pattern 的第一顆開始，那一下就是拍子的起點。打對與否只看順序；時間偏差照設定 BPM 的格線計算。停手約 1 秒算一段結束。藍牙耳機有延遲，請調「音訊 offset」。iPhone 靜音模式下沒有節拍聲。版本 <span id="ver"></span></p>
     </div>
   </div>
 </div>
 
 <script>
 {
-const VERSION='v3.1';
+const VERSION='v3.2';
 const $=s=>document.querySelector(s);
 const PATS=[
   {id:'up',n:'樓梯 ↗',s:'A B C D'},{id:'down',n:'樓梯 ↘',s:'D C B A'},{id:'zig',n:'來回樓梯',s:'A B C D C B'},
@@ -170,45 +170,51 @@ const beep=(t,f,v)=>{if(!ac)return;try{const at=ac.currentTime+Math.max(0,(t-per
   const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=f;o.type='square';
   g.gain.setValueAtTime(v,at);g.gain.exponentialRampToValueAtTime(.0001,at+.03);o.connect(g).connect(ac.destination);o.start(at);o.stop(at+.035)}catch(e){}};
 
-// ---- engine: idle until the first note of the pattern is pressed; that press anchors a fixed grid
-let playing=false,t0=0,stepMs=100,seq=[[0]],pat=PATS[0],cyc=1,kGen=0,kDone=0,beatSteps=4,lastPress=0,win=100;
-let steps=new Map(),res=new Map(),st,hist=[],round=null;
+// ---- engine
+// Correctness = order: each press must be the next note of the pattern (time doesn't matter).
+// Timing = deviation of each correct hit from a fixed grid anchored at your first hit (set BPM).
+// "自身 σ" = deviation from a line fitted to your own taps (your own tempo), so drift ≠ instability.
+let playing=false,t0=0,stepMs=100,seq=[[0]],pat=PATS[0],cyc=1,kGen=0,kExp=0,beatSteps=4,lastPress=0,expHit=new Set();
+let res=new Map(),st,hist=[],round=null;
 const resetStats=()=>{st={ok:0,wrong:0,miss:0,streak:0,max:0};hist=[]};resetStats();
 const effBpm=()=>S.bpm*S.rate/100;
 const setup=()=>{pat=PATS.find(p=>p.id===S.pat)||PATS[0];
   if(pat.gen){if(!rndSeq||rndSeq.mode!==pat.gen)rndSeq=genSeq(pat.gen);seq=rndSeq}else seq=parse(pat.id==='custom'?S.custom:pat.s);
-  cyc=seq.length;stepMs=60000/effBpm()*4/S.div;beatSteps=Math.max(1,S.div/4);win=Math.min(stepMs*.5,120);
+  cyc=seq.length;stepMs=60000/effBpm()*4/S.div;beatSteps=Math.max(1,S.div/4);
   $('#reroll').hidden=!pat.gen;$('#bpmV').textContent=S.bpm;$('#rateV').textContent=S.rate+'%';
-  $('#eff').textContent=`實際 ${Math.round(effBpm()*10)/10} BPM · ${S.div} 分`;$('#info').textContent=pat.n};
-const stop=()=>{playing=false;steps=new Map();lastLive=0};
+  $('#eff').textContent=`目標 ${Math.round(effBpm()*10)/10} BPM · ${S.div} 分`;$('#info').textContent=pat.n};
+const stop=()=>{playing=false;lastLive=0};
 const stepT=k=>t0+k*stepMs;
-const getStep=k=>{let s=steps.get(k);if(!s){s={lanes:seq[((k%cyc)+cyc)%cyc],hit:new Set()};steps.set(k,s)}return s};
+const lanesAt=k=>seq[((k%cyc)+cyc)%cyc];
 const mark=(k,l,v)=>{let r=res.get(k);if(!r){r={};res.set(k,r)}r[l]=v;for(const key of res.keys()){if(key<k-cyc*2)res.delete(key);else break}};
-const begin=(now,l)=>{ensureAudio();setup();steps=new Map();res=new Map();t0=now;kGen=0;kDone=0;playing=true;lastPress=now;
-  round={ok:0,wrong:0,miss:0,devs:[]};
-  const s=getStep(0);s.hit.add(l);mark(0,l,0);st.ok++;round.ok++;st.streak++;st.max=Math.max(st.max,st.streak);fbHit(l,0)};
+const nextNonEmpty=k=>{let i=0;while(!lanesAt(k).length&&i++<cyc)k++;return k};
+// linear fit of tap time vs step index → your actual tempo and your own steadiness
+const fitRound=r=>{const p=r.taps;if(p.length<3)return null;
+  const n=p.length,mx=p.reduce((a,q)=>a+q.k,0)/n,my=p.reduce((a,q)=>a+q.t,0)/n;
+  let sxx=0,sxy=0;for(const q of p){sxx+=(q.k-mx)**2;sxy+=(q.k-mx)*(q.t-my)}if(!sxx)return null;
+  const b=sxy/sxx,a0=my-b*mx,resd=p.map(q=>q.t-(a0+b*q.k));
+  return{bpm:60000/(b*S.div/4),sd:sd(resd)}};
+const hitNote=(k,l,now)=>{const d=now-stepT(k);expHit.add(l);st.ok++;round.ok++;st.streak++;st.max=Math.max(st.max,st.streak);
+  hist.push({d,l,t:now});if(hist.length>2000)hist.shift();round.devs.push(d);round.taps.push({k,t:now});mark(k,l,d);fbHit(l,d);
+  if(lanesAt(k).every(x=>expHit.has(x))){kExp=nextNonEmpty(k+1);expHit=new Set()}};
+const begin=(now,l)=>{ensureAudio();setup();res=new Map();t0=now;kGen=0;kExp=0;expHit=new Set();playing=true;lastPress=now;
+  round={ok:0,wrong:0,miss:0,devs:[],taps:[]};hitNote(0,l,now)};
 const schedule=now=>{
-  while(stepT(kGen)-S.aoff<now+150){const k=kGen,t=stepT(k)-S.aoff,s=getStep(k);
-    if(k>0&&t>now-15){if(S.click==='step'&&s.lanes.length)beep(t,k%cyc===0?2100:1500,.1);
+  while(stepT(kGen)-S.aoff<now+150){const k=kGen,t=stepT(k)-S.aoff,lanes=lanesAt(k);
+    if(k>0&&t>now-15){if(S.click==='step'&&lanes.length)beep(t,k%cyc===0?2100:1500,.1);
       else if(S.click==='beat'&&k%beatSteps===0)beep(t,k%(beatSteps*4)===0?2100:1500,.12)}
     kGen++}};
-// a step only counts as missed once you've played past it (stopping doesn't rack up misses)
-const finalize=()=>{
-  while(kDone<kGen&&lastPress>stepT(kDone)+win){
-    const s=getStep(kDone);
-    for(const l of s.lanes)if(!s.hit.has(l)){st.miss++;round.miss++;st.streak=0;fbMiss(l);mark(kDone,l,'M')}
-    steps.delete(kDone);kDone++}};
 const press=l=>{
   const now=performance.now();
   if(!playing){if(seq[0].includes(l))begin(now,l);else fbWrong(l);return}
   lastPress=now;
-  const kf=(now-t0)/stepMs,k=Math.round(kf);
-  const cand=[k,kf>k?k+1:k-1].filter(x=>x>=kDone&&x>=0);
-  for(const c of cand){if(c>=kGen)schedule(now+stepMs*2);const s=getStep(c),d=now-stepT(c);
-    if(s.lanes.includes(l)&&!s.hit.has(l)&&Math.abs(d)<=win){
-      s.hit.add(l);st.ok++;round.ok++;st.streak++;st.max=Math.max(st.max,st.streak);
-      hist.push({d,l,t:now});if(hist.length>2000)hist.shift();round.devs.push(d);mark(c,l,d);fbHit(l,d);finalize();return}}
-  st.wrong++;round.wrong++;st.streak=0;fbWrong(l);finalize()};
+  const cur=lanesAt(kExp);
+  if(cur.includes(l)&&!expHit.has(l)){hitNote(kExp,l,now);return}
+  // skipped the rest of the current note? accept the next one and count the skipped lanes as missed
+  const k2=nextNonEmpty(kExp+1);
+  if(lanesAt(k2).includes(l)){for(const x of cur)if(!expHit.has(x)){st.miss++;round.miss++;fbMiss(x);mark(kExp,x,'M')}
+    st.streak=0;kExp=k2;expHit=new Set();hitNote(k2,l,now);return}
+  st.wrong++;round.wrong++;st.streak=0;fbWrong(l)};
 
 // ---- key feedback
 const keys=[...document.querySelectorAll('.k')];
@@ -227,11 +233,13 @@ let lastLive=0;
 const live=now=>{
   if(now-lastLive<120)return;lastLive=now;
   const r=hist.slice(-32).map(h=>h.d),sg=sd(r),m=mean(r);
-  $('#sg').innerHTML=`σ <b style="color:${sg===null?'inherit':col(sg)}">${fmt(sg,' ms')}</b>`;
+  $('#sg').innerHTML=`對格σ <b style="color:${sg===null?'inherit':col(sg)}">${fmt(sg,' ms')}</b>`;
   $('#mn').innerHTML=m===null?'<b>–</b>':`${m>=0?'晚':'早'} <b>${Math.abs(Math.round(m))} ms</b>`;
   const el=$('#live');
+  const f=round?fitRound(round):null;
+  $('#eff').innerHTML=`目標 ${Math.round(effBpm()*10)/10}`+(f?` · 你 <b style="color:var(--ink)">${f.bpm.toFixed(1)}</b> BPM · 自身σ <b style="color:${col(f.sd)}">${fmt(f.sd,'ms')}</b>`:` BPM · ${S.div} 分`);
   if(playing)el.innerHTML=`正確 <b>${fmt(pct(round.ok,round.wrong,round.miss),'%')}</b> · 連續 <b>${st.streak}</b>`;
-  else if(round)el.innerHTML=`上一段 <b>${round.ok+round.miss}</b> note · 正確 <b>${fmt(pct(round.ok,round.wrong,round.miss),'%')}</b> · σ <b>${fmt(sd(round.devs),'ms')}</b>`;
+  else if(round)el.innerHTML=`上一段 <b>${round.ok}</b> note · 正確 <b>${fmt(pct(round.ok,round.wrong,round.miss),'%')}</b>`;
   else el.textContent='按 pattern 第一顆開始';
 };
 const HEX={ok:'#4dffc3',mid:'#ffe14d',bad:'#ff4d6d'};
@@ -258,7 +266,7 @@ const drawChart=now=>{
 };
 const drawMeter=now=>{
   const dpr=sizeCv(meter),W=meter.width,H=meter.height;mg.clearRect(0,0,W,H);if(!W)return;
-  const Rm=Math.max(50,Math.min(100,win)),cx=W/2,X=d=>cx+Math.max(-1,Math.min(1,d/Rm))*(W/2-3*dpr);
+  const Rm=Math.max(50,Math.min(100,stepMs*.5)),cx=W/2,X=d=>cx+Math.max(-1,Math.min(1,d/Rm))*(W/2-3*dpr);
   rr(mg,0,H*.3,W,H*.4,H*.2);mg.fillStyle='#14183f';mg.fill();
   mg.fillStyle='rgba(255,225,77,.18)';mg.fillRect(X(-40),H*.3,X(40)-X(-40),H*.4);
   mg.fillStyle='rgba(77,255,195,.28)';mg.fillRect(X(-20),H*.3,X(20)-X(-20),H*.4);
@@ -275,13 +283,14 @@ const loop=()=>{const now=performance.now();
 
 // ---- results sheet
 const scatter=()=>{const c=$('#sc'),dpr=sizeCv(c),W=c.width,H=c.height,g=c.getContext('2d');g.clearRect(0,0,W,H);
-  const pts=hist.slice(-120),R=Math.max(50,Math.min(120,win)),y=d=>H/2-d/R*(H/2-6*dpr);
+  const pts=hist.slice(-120),R=Math.max(50,Math.min(150,stepMs*.75)),y=d=>H/2-d/R*(H/2-6*dpr);
   g.fillStyle='rgba(77,255,195,.12)';g.fillRect(0,y(20),W,y(-20)-y(20));g.fillStyle='rgba(255,255,255,.3)';g.fillRect(0,H/2,W,1*dpr);
   g.font=`${11*dpr}px sans-serif`;g.fillStyle='#8f96bd';g.fillText('晚 +'+Math.round(R),6*dpr,14*dpr);g.fillText('早 −'+Math.round(R),6*dpr,H-6*dpr);
   pts.forEach((p,i)=>{g.fillStyle=p.l>3?'#ff8a1f':'#eef1ff';g.beginPath();g.arc((i+.5)/120*W,y(Math.max(-R,Math.min(R,p.d))),3*dpr,0,7);g.fill()})};
 const results=()=>{
   const all=hist.map(h=>h.d),s=sd(all),m=mean(all);
-  $('#big').innerHTML=[['σ（穩定度）',fmt(s,' ms')],['正確率',fmt(pct(st.ok,st.wrong,st.miss),'%')],['按錯 / 漏按',st.wrong+' / '+st.miss],['最長連續',st.max]]
+  const f=round?fitRound(round):null;
+  $('#big').innerHTML=[['對格 σ（跟設定 BPM）',fmt(s,' ms')],['自身 σ（上一段，跟你自己的速度）',f?fmt(f.sd,' ms'):'–'],['你實際的 BPM（上一段）',f?f.bpm.toFixed(1):'–'],['正確率',fmt(pct(st.ok,st.wrong,st.miss),'%')],['按錯 / 漏按',st.wrong+' / '+st.miss],['最長連續',st.max]]
     .map(([k,v])=>`<div><b>${v}</b>${k}</div>`).join('');
   $('#lanes').innerHTML=[...NAMES].map((n,i)=>{const d=hist.filter(h=>h.l===i).map(h=>h.d),v=sd(d);
     return `<div><b style="color:${v===null?'inherit':col(v)}">${fmt(v)}</b>${n} σ（${d.length}）</div>`}).join('');
