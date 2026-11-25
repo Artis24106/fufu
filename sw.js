@@ -1,5 +1,5 @@
 // Network-first: online opens always get the newest version; offline falls back to cache.
-const CACHE = 'sdvx-trainer-v1';
+const CACHE = 'sdvx-trainer-v2';
 const CORE = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
