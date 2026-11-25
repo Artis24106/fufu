@@ -21,7 +21,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -30,8 +30,12 @@ jobs:
           pip install pillow
           python tools/make_icons.py
       - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - name: Collect site
+        run: |
+          mkdir _site
+          cp -r index.html manifest.webmanifest sw.js icons _site/
+      - uses: actions/upload-pages-artifact@v4
         with:
-          path: .
+          path: _site
       - id: deployment
         uses: actions/deploy-pages@v4
